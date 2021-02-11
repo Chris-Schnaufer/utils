@@ -144,13 +144,13 @@ def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tu
                 sel_file = get_input('Enter the number associated with file: ').strip()
                 sel_idx = int(sel_file)
                 if sel_idx > 0:
-                    if sel_idx < len(matches):
+                    if sel_idx <= len(matches):
                         logging.debug(" file index %s selected", sel_idx)
                         found_files.append(matches[sel_idx - 1])
                         out_file.write(matches[sel_idx - 1] + '\n')
                         done = True
                     else:
-                        print("Entered value is out of range")
+                        print("Entered value is out of range: %s %d", sel_file, sel_idx)
                 elif sel_idx == 0:
                     print("Skipping folder")
                     done = True
@@ -221,7 +221,7 @@ def globus_get_tif_files(globus_authorizer: globus_sdk.RefreshTokenAuthorizer, r
 
     # Query for all the files to download
     files = query_files(trans_client, endpoint_id, folders, ('.tif', '.TIF', '.tiff', '.TIFF'),
-                        ('_10pct', '_thumb', '_copy', '_mask'))
+                        ('_10pct', '_thumb', '_copy', '_mask', '_nrmac', 'test'))
 
     # Download the files
     globus_download_files(trans_client, endpoint_id, files)
