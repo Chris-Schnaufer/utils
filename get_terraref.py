@@ -82,7 +82,7 @@ def globus_download_files(client: globus_sdk.TransferClient, endpoint_id: str, f
 
                 local_dir = os.getcwd()
                 os.chdir(os.path.dirname(save_path))
-                resp = subprocess.run(['iput', '-K', '-f' os.path.basename(save_path)], stdout=subprocess.PIPE)
+                resp = subprocess.run(['iput', '-K', '-f', os.path.basename(save_path)], stdout=subprocess.PIPE)
                 if resp.returncode != 0:
                     os.chdir(local_dir)
                     raise RuntimeError("Unable to load file to iRODS %s" % save_path)
