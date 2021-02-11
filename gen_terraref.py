@@ -78,7 +78,8 @@ def globus_download_files(client: globus_sdk.TransferClient, endpoint_id: str, f
         del file_transfers
 
 
-def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tuple, extensions: tuple) -> Optional[tuple]:
+def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tuple, extensions: tuple,
+                exclude_parts: tuple) -> Optional[tuple]:
     """Returns a list of files on the endpoint path that match the dates provided
     Arguments:
         client: the Globus transfer client to use
@@ -115,8 +116,18 @@ def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tu
 
                 # Check if it's included
                 if file_format not in check_ext:
-                    logging.debug("   remote file doesn't match extension: %s %s", file_path, check_ext)
+                    logging.debug("   remote file doesn't match extension: %s %s", os.path.basename(file_path), check_ext)
                     continue
+
+                if exclude_parts:
+                    found_exclude = False
+                    for part in exclude_parts:
+                        if part in one_entry['name']:
+                            found_exclude = True
+                            break
+                    if found_exclude:
+                        logging.warning("  remote file name includes an excluded term: %s %s", one_entry['name'], exclude_parts)
+                        continue
 
                 matches.append(file_path)
 
@@ -129,6 +140,7 @@ def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tu
                 idx = 1
                 for one_match in matches:
                     print(idx, ".", os.path.basename(one_match))
+                    idx += 1
                 sel_file = get_input('Enter the number associated with file: ').strip()
                 sel_idx = int(sel_file)
                 if sel_idx > 0:
@@ -208,7 +220,8 @@ def globus_get_tif_files(globus_authorizer: globus_sdk.RefreshTokenAuthorizer, r
     folders = globus_get_folders(trans_client, endpoint_id, remote_path)
 
     # Query for all the files to download
-    files = query_files(trans_client, endpoint_id, folders, ('.tif', '.TIF', '.tiff', '.TIFF'))
+    files = query_files(trans_client, endpoint_id, folders, ('.tif', '.TIF', '.tiff', '.TIFF'),
+                        ('_10pct', '_thumb', '_copy', '_mask'))
 
     # Download the files
     globus_download_files(trans_client, endpoint_id, files)
