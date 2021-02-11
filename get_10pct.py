@@ -59,6 +59,7 @@ def globus_download_files(client: globus_sdk.TransferClient, endpoint_id: str, f
     if file_transfers:
         have_exception = False
         cnt = 1
+
         for remote_path, save_path in file_transfers.items():
             try:
                 logging.info("Trying transfer %s: %s", str(cnt), str(remote_path))
@@ -70,6 +71,9 @@ def globus_download_files(client: globus_sdk.TransferClient, endpoint_id: str, f
                 task_result = client.task_wait(transfer_request['task_id'], timeout=600, polling_interval=5)
                 if not task_result:
                     raise RuntimeError("Unable to retrieve JSON metadata: %s" % remote_path)
+                if not os.path.exists(save_path):
+                    raise RuntimeError("Unable to find downloaded file at: %s" % save_path)
+
             except RuntimeError as ex:
                 have_exception = True
                 logging.warning("Failed to get image: %s", str(ex))
@@ -79,21 +83,20 @@ def globus_download_files(client: globus_sdk.TransferClient, endpoint_id: str, f
 
 
 def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tuple, extensions: tuple,
-                exclude_parts: tuple) -> Optional[tuple]:
+                include_parts: tuple) -> Optional[tuple]:
     """Returns a list of files on the endpoint path that match the dates provided
     Arguments:
         client: the Globus transfer client to use
         endpoint_id: the ID of the endpoint to access
         folders: a list of folders to search within (search is 1 deep)
         extensions: a list of acceptable filename extensions (can be wildcard '*')
+        include_parts: the file name fragments for inclusion
     Return:
         Returns a list of acceptable files with the extension(s)
     """
-    get_input = getattr(__builtins__, 'raw_input', input)
-
     found_files = []
     check_ext = [e.lstrip('.') for e in extensions]
-    out_file = open(os.path.join(LOCAL_SAVE_PATH, 'file_list.txt'), 'w')
+    out_file = open(os.path.join(LOCAL_SAVE_PATH, 'file_10pct.txt'), 'w')
     for one_folder in folders:
         cur_path = os.path.join('/-', one_folder)
         logging.debug("Globus files path: %s", cur_path)
@@ -119,47 +122,20 @@ def query_files(client: globus_sdk.TransferClient, endpoint_id: str, folders: tu
                     logging.debug("   remote file doesn't match extension: %s %s", os.path.basename(file_path), check_ext)
                     continue
 
-                if exclude_parts:
-                    found_exclude = False
-                    for part in exclude_parts:
+                if include_parts:
+                    found_include = False
+                    for part in include_parts:
                         if part in one_entry['name']:
-                            found_exclude = True
+                            found_include = True
                             break
-                    if found_exclude:
-                        logging.warning("  remote file name includes an excluded term: %s %s", one_entry['name'], exclude_parts)
-                        continue
+                    if found_include:
+                        logging.warning("Found wanted image: %s %s", one_entry['name'], include_parts)
+                        matches.append(file_path)
+                        break
 
-                matches.append(file_path)
-
-        if matches:
-            done = False
-            while not done:
-                print("Remote folder", one_folder)
-                print("Please select file to download:")
-                print(0, ".", "None")
-                idx = 1
-                for one_match in matches:
-                    print(idx, ".", os.path.basename(one_match))
-                    idx += 1
-                sel_file = get_input('Enter the number associated with file: ').strip()
-                sel_idx = int(sel_file)
-                if sel_idx > 0:
-                    if sel_idx <= len(matches):
-                        logging.debug(" file index %s selected", sel_idx)
-                        found_files.append(matches[sel_idx - 1])
-                        out_file.write(matches[sel_idx - 1] + '\n')
-                        done = True
-                    else:
-                        print("Entered value is out of range: %s %d", sel_file, sel_idx)
-                elif sel_idx == 0:
-                    print("Skipping folder")
-                    done = True
-                else:
-                    print("Invalid entry")
-                if not done:
-                    print("Please try again")
-            print("-")
-            print("-")
+        for one_match in matches:
+            found_files.append(one_match)
+            out_file.write(one_match + '\n')
 
     out_file.close()
     print("Done searching for files to download: found", len(found_files), "files")
@@ -221,7 +197,7 @@ def globus_get_tif_files(globus_authorizer: globus_sdk.RefreshTokenAuthorizer, r
 
     # Query for all the files to download
     files = query_files(trans_client, endpoint_id, folders, ('.tif', '.TIF', '.tiff', '.TIFF'),
-                        ('_10pct', '_thumb', '_copy', '_mask', '_nrmac', 'test'))
+                        tuple('_10pct'))
 
     # Download the files
     globus_download_files(trans_client, endpoint_id, files)
@@ -250,7 +226,7 @@ def generate() -> None:
     # Get the Globus authorization
     authorizer = globus_get_authorizer()
 
-    # Create the files table
+    # Get the tif files
     globus_get_tif_files(authorizer, GLOBUS_ENDPOINT, GLOBUS_PATH)
 
 
