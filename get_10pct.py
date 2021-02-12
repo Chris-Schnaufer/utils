@@ -197,7 +197,7 @@ def globus_get_tif_files(globus_authorizer: globus_sdk.RefreshTokenAuthorizer, r
 
     # Query for all the files to download
     files = query_files(trans_client, endpoint_id, folders, ('.tif', '.TIF', '.tiff', '.TIFF'),
-                        tuple('_10pct'))
+                        ('_10pct',))
 
     # Download the files
     globus_download_files(trans_client, endpoint_id, files)

@@ -82,11 +82,14 @@ def globus_download_files(client: globus_sdk.TransferClient, endpoint_id: str, f
 
                 local_dir = os.getcwd()
                 os.chdir(os.path.dirname(save_path))
+                print("Uploading file to irods: %s", save_path)
                 resp = subprocess.run(['iput', '-K', '-f', os.path.basename(save_path)], stdout=subprocess.PIPE)
                 if resp.returncode != 0:
                     os.chdir(local_dir)
                     raise RuntimeError("Unable to load file to iRODS %s" % save_path)
                 os.chdir(local_dir)
+                print("    removing uploaded file")
+                os.remove(save_path)
 
             except RuntimeError as ex:
                 have_exception = True
